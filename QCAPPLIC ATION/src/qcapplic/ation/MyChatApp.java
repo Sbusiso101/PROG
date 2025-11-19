@@ -12,7 +12,10 @@ package qcapplic.ation;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Random;
-import javax.swing.JOptionPane;  
+import javax.swing.JOptionPane;
+import java.io.IOException; 
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 public class MyChatApp {
      
@@ -41,7 +44,7 @@ public class MyChatApp {
     ArrayList<String> hashID = new ArrayList<>();
     // uniqueMessageID is now an ArrayList for indexing AND stores the IDs
     ArrayList<String> sentMessageID = new ArrayList<>(); 
-    
+    ArrayList<String> externalData = new ArrayList<>();
    
     java.util.HashSet<String> uniqueIDTracker = new java.util.HashSet<>(); 
 
@@ -407,7 +410,7 @@ public class MyChatApp {
 
     public void messageManagement() {
 
-        String [] options = {"Search ID","Delete by hash","Show all sent messages","Display longest message"};
+        String [] options = {"Search ID","Delete by hash","Show all sent messages","Display longest message","Search for messages using the recipient number","Read JSON data"};
         int action = JOptionPane.showOptionDialog(null,
                 "Message management",
                 "Management",
@@ -421,7 +424,9 @@ public class MyChatApp {
             case 0 -> searchbyID();
             case 1 -> deletebyHash();
             case 2 -> printSentMessages();
-            case 3 -> displaylongestmessage();
+            case 3 -> displaylongestmessage() ; 
+            case 4 -> searchMessagesbyrecipient (); 
+            case 5 -> readJsonFile("messages.json");
             // Default case (closing dialog) returns to sign-in loop
         }
     }
@@ -548,4 +553,106 @@ public class MyChatApp {
             JOptionPane.showMessageDialog(null, displayMessage, "Longest Sent Message", JOptionPane.INFORMATION_MESSAGE);
         }
     } 
+     
+   public void searchMessagesbyrecipient () { 
+    
+   String searchNumber;
+        do {
+            searchNumber = JOptionPane.showInputDialog("Enter the recipient's phone number to search: (+27XXXXXXXXX or 0XXXXXXXXX)");
+            if (searchNumber == null)
+                return;
+        } while (!Validation.checkCellPhoneNumber(searchNumber));
+
+        StringBuilder results = new StringBuilder("*** SEARCH RESULTS FOR RECIPIENT: " + searchNumber + " ***\n\n");
+        int foundCount = 0;
+
+        // --- 1. Search Sent Messages ---
+        results.append("--- SENT MESSAGES ---\n");
+        for (int i = 0; i < sentMessage.size(); i++) {
+            if (sentRecipientPhone.get(i).equals(searchNumber)) {
+                String id = sentMessageID.get(i);
+                String hash = hashID.get(i);
+                String messageContent = sentMessage.get(i);
+                
+                results.append(String.format("ID: %s | Hash: %s\n", id, hash));
+                results.append(String.format("Content: %s\n\n", messageContent));
+                foundCount++;
+            }
+        }
+        if (foundCount == 0) {
+            results.append("No sent messages found for this recipient.\n\n");
+        } else {
+            results.append(String.format("Total sent messages found: %d\n\n", foundCount));
+        }
+
+        // --- 2. Search Stored Messages ---
+        foundCount = 0; // Reset counter for stored messages
+        results.append("--- STORED MESSAGES (Intended Recipient) ---\n");
+        
+        
+        String lastRecipient = sentRecipientPhone.isEmpty() ? null : sentRecipientPhone.get(sentRecipientPhone.size() - 1);
+        
+        if (lastRecipient != null && lastRecipient.equals(searchNumber) && !storedMessageContent.isEmpty()) {
+             for (int i = 0; i < storedMessageContent.size(); i++) {
+                String id = storedMessageID.get(i);
+                String hash = storedHashID.get(i);
+                String messageContent = storedMessageContent.get(i);
+                
+                results.append(String.format("ID (Temp): %s | Hash (Temp): %s\n", id, hash));
+                results.append(String.format("Content: %s\n\n", messageContent));
+                foundCount++;
+            }
+        }
+        
+        if (foundCount == 0) {
+             results.append("No stored messages found intended for this recipient (based on last session).\n\n");
+        } else {
+            results.append(String.format("Total stored messages found: %d\n\n", foundCount));
+        }
+
+
+        if (sentMessage.isEmpty() && storedMessageContent.isEmpty()) {
+            JOptionPane.showMessageDialog(null, "No messages have been sent or stored yet.", "Search Results", JOptionPane.INFORMATION_MESSAGE);
+        } else {
+            JOptionPane.showMessageDialog(null, results.toString(), "Search Results", JOptionPane.INFORMATION_MESSAGE);
+        }
+    } 
+   
+     public void readJsonFile(String fileName) {
+        // 1. Clear previous data
+        externalData.clear();
+        
+        try {
+            // 2. Read all lines from the file path
+            java.util.List<String> lines = Files.readAllLines(Paths.get(fileName));
+            
+            // 3. Process and store lines
+            for (String line : lines) {
+                String trimmedLine = line.trim();
+                
+                // Skip JSON structural elements and empty lines for simplified array storage
+                if (!trimmedLine.startsWith("{") && !trimmedLine.startsWith("}") && !trimmedLine.isEmpty()) {
+                    // Clean up common JSON punctuation (commas and quotes) for simpler viewing
+                    externalData.add(trimmedLine.replace(",", "").replace("\"", ""));
+                }
+            }
+
+            JOptionPane.showMessageDialog(null, 
+                String.format("Successfully read data from **%s**. Total data entries stored: %d.", 
+                fileName, externalData.size()), 
+                "JSON Read Success", JOptionPane.INFORMATION_MESSAGE);
+
+        } catch (IOException e) {
+            // Handle file not found or other I/O errors
+            JOptionPane.showMessageDialog(null, 
+                "Error reading file **" + fileName + "**. Please ensure the file exists in the project root.\nError: " + e.getMessage(), 
+                "File Read Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
 }
+   
+   
+   
+    
+    
+     
